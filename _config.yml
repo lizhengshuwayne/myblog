@@ -3,7 +3,7 @@
 ## Source: https://github.com/hexojs/hexo/
 
 # Site
-title: lizhengshuwayne
+title: lizhengshuwayne's Blog
 subtitle:
 description:
 keywords:
@@ -74,6 +74,34 @@ pagination_dir: page
 ## Plugins: https://hexo.io/plugins/
 ## Themes: https://hexo.io/themes/
 theme: next
+theme_config:
+  favicon:
+    small: /images/favicon-16x16-next.png
+    medium: /images/favicon-32x32-next.png
+    apple_touch_icon: /images/apple-touch-icon-next.png
+    safari_pinned_tab: /images/logo.svg
+  scheme: Gemini
+  menu:
+    home: / || home
+    about: /about/ || user
+    tags: /tags/ || tags
+    categories: /categories/ || th
+    archives: /archives/ || archive
+  menu_settings:
+    icons: true
+    badges: true
+  avatar:
+    url: /images/searchicon.png
+    rounded: true
+    opacity: 1
+    rotated: false
+  social:
+    GitHub: https://github.com/lizhengshuwayne || github
+    E-Mail: mailto:lizhengshuwayne@outlook.com || envelope
+  social_icons:
+    enable: true
+    icons_only: true
+    transition: true
 
 # Deployment
 ## Docs: https://hexo.io/docs/deployment.html
@@ -81,19 +109,3 @@ deploy:
   type: git
   repo: git@github.com:lizhengshuwayne/lizhengshuwayne.github.io.git
   branch: master
-
-
-#################################################################
-###################### NexT Configuration #######################
-#################################################################
-
-theme_config:
-
-  # ============================================================= #
-  # ====================== Scheme Settings ====================== #
-  # ============================================================= #
-
-  #scheme: Muse
-  #scheme: Mist
-  #scheme: Pisces
-  scheme: Gemini
