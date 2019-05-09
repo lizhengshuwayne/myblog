@@ -5,7 +5,7 @@
 # Site
 title: lizhengshuwayne's Blog
 subtitle:
-description: You yu jiu hui bai bei!
+description: Hello World!
 keywords:
 author: lizhengshuwayne
 language: zh-CN
@@ -91,7 +91,7 @@ theme_config:
     icons: true
     badges: true
   avatar:
-    url: /images/searchicon.png
+    url: /images/head.jpg
     rounded: true
     opacity: 1
     rotated: false
