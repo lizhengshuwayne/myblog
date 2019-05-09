@@ -6,7 +6,7 @@ tags: little tools
 
 ## about
 
-心血来潮，用js写了一个脚本，用于发布公司产品，不用手动，~~然而并没有什么卵用~~很爽。
+自动化部署钉钉《连帆排班》前端工程的脚本。
 
 项目地址：[https://github.com/lizhengshuwayne/lianfan-publisher](https://github.com/lizhengshuwayne/lianfan-publisher)
 
@@ -28,146 +28,73 @@ tags: little tools
     
 ### demands
 
-公司的项目由web上对应的打包工具，输出zip格式的压缩包的下载地址。
+手动部署前端工程很不方便，而且容易出现误操作。
 
-对于文件名我做了特殊处理，输出的文件名带有时间戳， 即productName_YYYYMMDDHHss.zip。
-
-同时生成一份内容为当前最新包的名称的txt文件。
-
-之后只需要先下载txt文件，识别内容，取得最新包的filename，就可以下载对应的包了。
-
-```bat
-set filename=mobile_%date:~0,4%%date:~5,2%%date:~8,2%%time:~0,2%%time:~3,2%.zip
-7z a %filename% ./dist/*
-echo %filename% > ./dist/latest_filename.txt
-```
-然后连接ssh服务器，上传包于对应的tmp文件夹，执行shell命令， 解压包到对应发布目录并覆盖同名文件，到此发布完成。
-
-```shell
-unzip -o /var/lianfan/static/mobile_YYYYMMDDHHss.zip -d /var/lianfan/static/mobile/
-```
+需要实现可自动化部署的脚本来简化工作内容。
 
 ### analysis
 
-如果是第一次运行，需要初始化一些数据，登录打包网站的username:password, 连接对应ssh服务器的host、 username和password，生成.cache文件作为缓存, 方便下次使用。
+第一次运行，需要初始化一些验证信息：打包服务器的username:password，部署服务器的host、 username和password。
 
-下次运行脚本可以选择是否重新初始化。
+生成一份.cache文件保存验证信息, 方便下次使用。
 
-```js
-// init()
-const answers = await inquirer.prompt([
-    {
-        type: "input",
-        name: "host",
-        message: "input your remote ssh host: ",
-    },
-    {
-        type: "input",
-        name: "username",
-        message: "input your remote ssh username: ",
-    },
-    {
-        type: "input",
-        name: "password",
-        message: "input your remote ssh password: ",
-    },
-    {
-        type: "input",
-        name: "psd",
-        message: "input your ci username and password (username:password): ",
-    },
-]);
-const answersStr = JSON.stringify(answers);
-fs.writeFileSync(".cache", answersStr);
+可重复输入命令行以多次覆盖验证信息。
+
+```sh
+$ yarn init-cache
 ```
 
+从打包服务器下载最新版本的包，并上传到部署服务器备份。
+
+过程中，获取了当前上传时间，将最新的包重名为带有时间搓的文件名，如mobile_201901010000.zip。
+
+```sh
+$ yarn update-package
+```
+
+选择需要的版本进行发布。
+
+列出备份的不同版本包的文件名，并按照时间倒序排序，作为待选项让发布者自行选择。
+
+为了便于发布新版本或者还原到任意老版本，因此让发布者自行选择发布版本。
+
+```sh
+$ yarn publish-package
+```
+
+“选择对应版本发布前，需要确认是否发布选中的版本，如果不是，则重新选择版本。”
+
+此处可用递归实现。如下：
+
 ```js
-// init ssh's host, username, password and ci's psd
-if (fs.existsSync(".cache")) {
-    const {isChange} = await inquirer.prompt([
+// 定义一个getPackageNameAsync函数，首先选中版本，确认该版本则返回文件名，否则再次执行getPackageName操作。
+const getPackageNameAsync = async (packageNames) => {
+    const {packageName} = await inquirer.prompt([
+        {
+            type: "list",
+            name: "packageName",
+            message: "Which package will be published?",
+            default: packageNames[0],
+            choices: packageNames,
+        },
+    ]);
+    const {isSure} = await inquirer.prompt([
         {
             type: "confirm",
-            name: "isChange",
-            message: "The ssh and ci's cache is exist. Change it ?",
+            name: "isSure",
+            message: `Are you sure to publish ${packageName}?`,
             default: false,
         },
     ]);
-    if (isChange) {
-        await init();
+
+    if (isSure) {
+        return packageName;
+    } else {
+        return await getPackageNameAsync(packageNames);
     }
-} else {
-    await init();
-}
-```
-
-选择你需要发布的产品类型。
-
-```js
-// choose which product is your wish
-const {product} = await inquirer.prompt([
-    {
-        type: "list",
-        name: "product",
-        choices: ["dashboard", "mobile", "pc", "pc_intern"],
-        default: "dashboard",
-    },
-]);
-```
-
-通过下载解析latest_filename.txt文件，取得对应的zip包，放在.back目录下，方便版本追溯。
-
-```js
-// download()
-const content = fs.readFileSync(".cache", "utf8");
-const {psd} = JSON.parse(content.trim());
-await download(
-    `http://ci.lianfan.net/job/numas/job/${productMap[product]}/ws/${pre}${filename}`,
-    `./.back/${product}`,
-    {
-        headers: {
-            Authorization: `Basic ${Buffer.from(psd).toString("base64")}`, // 类curl协议 Authorization:base64(username:password)
-        },
-    },
-);
-```
-
-```js
-// 下载记录最新zip包文件名的txt
-await download("latest_filename.txt", product, "dist/");
-
-// 获取最新zip包名称
-const content = fs.readFileSync(`./.back/${product}/latest_filename.txt`, "utf8");
-const filename = content.trim();
-console.log("get filename success!");
-
-// 下载对应zip包
-await download(filename, product);
-```
-
-连接远程服务器
-
-```js
-// 下载记录最新zip包文件名的txt
-const cache = fs.readFileSync(".cache", "utf8");
-const {host, username, password} = JSON.parse(cache.trim());
-await ssh.connect({
-    host,
-    username,
-    password,
-});
-```
-
-上传zip包并执行命令
-
-```js
-await ssh.putFile(`./.back/${product}/${filename}`, `/var/lianfan/static/${filename}`);
-
-// 执行shell命令
-await ssh.execCommand(`unzip -o /var/lianfan/static/${filename} -d /var/lianfan/static/${product}/`, {cwd: "/"});
+};
 ```
 
 ## others
 
-折腾了很久，学会了怎么用轮子拼装起来，做一个成熟的手推车。
-
-犹豫就会败北，岂可修。
+待实际场景验证可靠性及实用性。
